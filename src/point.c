@@ -1,4 +1,4 @@
-#include "simple_analog.h"
+#include "point.h"
 
 #include "pebble.h"
 
@@ -149,10 +149,6 @@ static void init() {
   gpath_move_to(s_minute_arrow, center);
   gpath_move_to(s_hour_arrow, center);
   gpath_move_to(s_second_arrow, center);
-    
-  //for (int i = 0; i < NUM_CLOCK_TICKS; ++i) {
-  //  s_tick_paths[i] = gpath_create(&ANALOG_BG_POINTS[i]);
-  //}
 
   tick_timer_service_subscribe(SECOND_UNIT, handle_second_tick);
 }
