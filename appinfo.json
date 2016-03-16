@@ -10,6 +10,24 @@
     "resources": {
         "media": [
             {
+                "file": "images/seconds.png",
+                "name": "IMAGE_SECONDS",
+                "targetPlatforms": null,
+                "type": "bitmap"
+            },
+            {
+                "file": "images/minutes.png",
+                "name": "IMAGE_MINUTES",
+                "targetPlatforms": null,
+                "type": "bitmap"
+            },
+            {
+                "file": "images/hours.png",
+                "name": "IMAGE_HOURS",
+                "targetPlatforms": null,
+                "type": "bitmap"
+            },
+            {
                 "file": "images/background.png",
                 "name": "IMAGE_BACKGROUND",
                 "targetPlatforms": null,
