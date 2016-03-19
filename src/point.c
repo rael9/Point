@@ -1,13 +1,15 @@
+#include "point.h"
+
 #include "pebble.h"
 
-#define NUM_CLOCK_TICKS 11
-
 static Window *s_window;
-static Layer *s_simple_bg_layer, *s_date_layer, *s_hours_layer, *s_minutes_layer, *s_seconds_layer;
+static Layer *s_simple_bg_layer, *s_date_layer, *s_hands_layer;
 static TextLayer *s_day_label, *s_num_label;
-static BitmapLayer *s_background_image_layer, *s_hours_image_layer, *s_minutes_image_layer, *s_seconds_image_layer;
-static GBitmap *s_background_image, *s_hours_image, *s_minutes_image, *s_seconds_image;
+static BitmapLayer *background_image_layer;
+static GBitmap *background_image;
+
 static GPath *s_tick_paths[NUM_CLOCK_TICKS];
+static GPath *s_minute_arrow, *s_hour_arrow, *s_second_arrow;
 static char s_num_buffer[4], s_day_buffer[6];
 
 static void bg_update_proc(Layer *layer, GContext *ctx) {
@@ -15,39 +17,45 @@ static void bg_update_proc(Layer *layer, GContext *ctx) {
   graphics_fill_rect(ctx, layer_get_bounds(layer), 0, GCornerNone);
   graphics_context_set_fill_color(ctx, GColorBlack);
   for (int i = 0; i < NUM_CLOCK_TICKS; ++i) {
-    gpath_move_to(s_tick_paths[i], GPoint(0, 0));
+    const int x_offset = PBL_IF_ROUND_ELSE(18, 0);
+    const int y_offset = PBL_IF_ROUND_ELSE(6, 0);
+    gpath_move_to(s_tick_paths[i], GPoint(x_offset, y_offset));
     gpath_draw_filled(ctx, s_tick_paths[i]);
   }
 }
 
-static void hours_update_proc(Layer *layer, GContext *ctx) {
+static void hands_update_proc(Layer *layer, GContext *ctx) {
   GRect bounds = layer_get_bounds(layer);
   GPoint center = grect_center_point(&bounds);
     
   time_t now = time(NULL);
   struct tm *t = localtime(&now);
 
-  graphics_draw_rotated_bitmap(ctx, s_hours_image, center, (TRIG_MAX_ANGLE * (((t->tm_hour % 12) * 6) + (t->tm_min / 10))) / (12 * 6), center);
-}
+  // minute/hour hand
+  graphics_context_set_fill_color(ctx, GColorBlack);
+  graphics_context_set_stroke_color(ctx, GColorBlack);
 
-static void minutes_update_proc(Layer *layer, GContext *ctx) {
-  GRect bounds = layer_get_bounds(layer);
-  GPoint center = grect_center_point(&bounds);
+  gpath_rotate_to(s_minute_arrow, TRIG_MAX_ANGLE * t->tm_min / 60);
+  gpath_draw_filled(ctx, s_minute_arrow);
+  //gpath_draw_outline(ctx, s_minute_arrow);
+
+  gpath_rotate_to(s_hour_arrow, (TRIG_MAX_ANGLE * (((t->tm_hour % 12) * 6) + (t->tm_min / 10))) / (12 * 6));
+  gpath_draw_filled(ctx, s_hour_arrow);
+  //gpath_draw_outline(ctx, s_hour_arrow);
     
-  time_t now = time(NULL);
-  struct tm *t = localtime(&now);
-
-  graphics_draw_rotated_bitmap(ctx, s_minutes_image, center, TRIG_MAX_ANGLE * t->tm_min / 60, center);
-}
-
-static void seconds_update_proc(Layer *layer, GContext *ctx) {
-  GRect bounds = layer_get_bounds(layer);
-  GPoint center = grect_center_point(&bounds);
+  // second hand
+  graphics_context_set_fill_color(ctx, GColorDarkCandyAppleRed);
+  graphics_context_set_stroke_color(ctx, GColorDarkCandyAppleRed);
     
-  time_t now = time(NULL);
-  struct tm *t = localtime(&now);
-
-  graphics_draw_rotated_bitmap(ctx, s_seconds_image, center, TRIG_MAX_ANGLE * t->tm_sec / 60, center);
+  gpath_rotate_to(s_second_arrow, TRIG_MAX_ANGLE * t->tm_sec / 60);
+  gpath_draw_filled(ctx, s_second_arrow);
+  //gpath_draw_outline(ctx, s_second_arrow);
+    
+  // dots in the middle
+  graphics_context_set_fill_color(ctx, GColorDarkCandyAppleRed);
+  graphics_fill_circle(ctx, center, 6);
+  graphics_context_set_fill_color(ctx, GColorBlack);
+  graphics_fill_circle(ctx, center, 2);
 }
 
 static void date_update_proc(Layer *layer, GContext *ctx) {
@@ -74,12 +82,12 @@ static void window_load(Window *window) {
   layer_add_child(window_layer, s_simple_bg_layer);
 
   // Background image
-  s_background_image_layer = bitmap_layer_create(bounds);
-  s_background_image = gbitmap_create_with_resource(RESOURCE_ID_IMAGE_BACKGROUND);
-  bitmap_layer_set_compositing_mode(s_background_image_layer, GCompOpAssign);
-  bitmap_layer_set_bitmap(s_background_image_layer, s_background_image);
-  bitmap_layer_set_alignment(s_background_image_layer, GAlignCenter);
-  layer_add_child(s_simple_bg_layer, bitmap_layer_get_layer(s_background_image_layer));
+  background_image_layer = bitmap_layer_create(bounds);
+  background_image = gbitmap_create_with_resource(RESOURCE_ID_IMAGE_BACKGROUND);
+  bitmap_layer_set_compositing_mode(background_image_layer, GCompOpAssign);
+  bitmap_layer_set_bitmap(background_image_layer, background_image);
+  bitmap_layer_set_alignment(background_image_layer, GAlignCenter);
+  layer_add_child(s_simple_bg_layer, bitmap_layer_get_layer(background_image_layer));
     
   s_date_layer = layer_create(bounds);
   layer_set_update_proc(s_date_layer, date_update_proc);
@@ -101,40 +109,14 @@ static void window_load(Window *window) {
 
   layer_add_child(s_date_layer, text_layer_get_layer(s_num_label));
 
-  s_hours_layer = layer_create(bounds);
-  layer_set_update_proc(s_hours_layer, hours_update_proc);
-  layer_add_child(window_layer, s_hours_layer);
-  s_hours_image_layer = bitmap_layer_create(bounds);
-  s_hours_image = gbitmap_create_with_resource(RESOURCE_ID_IMAGE_HOURS);
-  bitmap_layer_set_compositing_mode(s_hours_image_layer, GCompOpSet);
-  bitmap_layer_set_bitmap(s_hours_image_layer, s_hours_image);
-  bitmap_layer_set_alignment(s_hours_image_layer, GAlignCenter);
-  layer_add_child(s_hours_layer, bitmap_layer_get_layer(s_hours_image_layer));
-  
-  s_minutes_layer = layer_create(bounds);
-  layer_set_update_proc(s_minutes_layer, minutes_update_proc);
-  layer_add_child(window_layer, s_minutes_layer);
-  s_minutes_image_layer = bitmap_layer_create(bounds);
-  s_minutes_image = gbitmap_create_with_resource(RESOURCE_ID_IMAGE_MINUTES);
-  bitmap_layer_set_compositing_mode(s_minutes_image_layer, GCompOpSet);
-  bitmap_layer_set_bitmap(s_minutes_image_layer, s_minutes_image);
-  bitmap_layer_set_alignment(s_minutes_image_layer, GAlignCenter);
-  layer_add_child(s_minutes_layer, bitmap_layer_get_layer(s_minutes_image_layer));
-  
-  s_seconds_layer = layer_create(bounds);
-  layer_set_update_proc(s_seconds_layer, seconds_update_proc);
-  layer_add_child(window_layer, s_seconds_layer);
-  s_seconds_image_layer = bitmap_layer_create(bounds);
-  s_seconds_image = gbitmap_create_with_resource(RESOURCE_ID_IMAGE_SECONDS);
-  bitmap_layer_set_compositing_mode(s_seconds_image_layer, GCompOpSet);
-  bitmap_layer_set_bitmap(s_seconds_image_layer, s_seconds_image);
-  bitmap_layer_set_alignment(s_seconds_image_layer, GAlignCenter);
-  layer_add_child(s_seconds_layer, bitmap_layer_get_layer(s_seconds_image_layer));
+  s_hands_layer = layer_create(bounds);
+  layer_set_update_proc(s_hands_layer, hands_update_proc);
+  layer_add_child(window_layer, s_hands_layer);
 }
 
 static void window_unload(Window *window) {
-  gbitmap_destroy(s_background_image);
-  bitmap_layer_destroy(s_background_image_layer);
+  gbitmap_destroy(background_image);
+  bitmap_layer_destroy(background_image_layer);
     
   layer_destroy(s_simple_bg_layer);
   layer_destroy(s_date_layer);
@@ -142,9 +124,7 @@ static void window_unload(Window *window) {
   text_layer_destroy(s_day_label);
   text_layer_destroy(s_num_label);
 
-  layer_destroy(s_hours_layer);
-  layer_destroy(s_minutes_layer);
-  layer_destroy(s_seconds_layer);
+  layer_destroy(s_hands_layer);
 }
 
 static void init() {
@@ -158,10 +138,30 @@ static void init() {
   s_day_buffer[0] = '\0';
   s_num_buffer[0] = '\0';
 
+  // init hand paths
+  s_minute_arrow = gpath_create(&MINUTE_HAND_POINTS);
+  s_hour_arrow = gpath_create(&HOUR_HAND_POINTS);
+  s_second_arrow = gpath_create(&SECOND_HAND_POINTS);
+
+  Layer *window_layer = window_get_root_layer(s_window);
+  GRect bounds = layer_get_bounds(window_layer);
+  GPoint center = grect_center_point(&bounds);
+  gpath_move_to(s_minute_arrow, center);
+  gpath_move_to(s_hour_arrow, center);
+  gpath_move_to(s_second_arrow, center);
+
   tick_timer_service_subscribe(SECOND_UNIT, handle_second_tick);
 }
 
 static void deinit() {
+  gpath_destroy(s_minute_arrow);
+  gpath_destroy(s_hour_arrow);
+  gpath_destroy(s_second_arrow);
+
+  for (int i = 0; i < NUM_CLOCK_TICKS; ++i) {
+    gpath_destroy(s_tick_paths[i]);
+  }
+
   tick_timer_service_unsubscribe();
   window_destroy(s_window);
 }
