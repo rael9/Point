@@ -24,12 +24,12 @@ static const GPathInfo HOUR_HAND_POINTS = {
 
 static const GPathInfo SECOND_HAND_POINTS = {
   7, (GPoint []){
-        { -3, 20 },
-        { 3, 20 },
-        { 3, -70 },
-        { 9, -70 },
+        { -2, 20 },
+        { 2, 20 },
+        { 2, -70 },
+        { 8, -70 },
         { 0, -80 },
-        { -9, -70 },
-        { -3, -70 }
+        { -8, -70 },
+        { -2, -70 }
     }
 };

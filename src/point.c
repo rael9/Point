@@ -37,19 +37,22 @@ static void hands_update_proc(Layer *layer, GContext *ctx) {
 
   gpath_rotate_to(s_minute_arrow, TRIG_MAX_ANGLE * t->tm_min / 60);
   gpath_draw_filled(ctx, s_minute_arrow);
-  //gpath_draw_outline(ctx, s_minute_arrow);
+  gpath_draw_outline(ctx, s_minute_arrow);
 
   gpath_rotate_to(s_hour_arrow, (TRIG_MAX_ANGLE * (((t->tm_hour % 12) * 6) + (t->tm_min / 10))) / (12 * 6));
   gpath_draw_filled(ctx, s_hour_arrow);
-  //gpath_draw_outline(ctx, s_hour_arrow);
+  gpath_draw_outline(ctx, s_hour_arrow);
     
   // second hand
   graphics_context_set_fill_color(ctx, GColorDarkCandyAppleRed);
   graphics_context_set_stroke_color(ctx, GColorDarkCandyAppleRed);
     
+  int current_angle = TRIGANGLE_TO_DEG(TRIG_MAX_ANGLE * t->tm_sec / 60);
   gpath_rotate_to(s_second_arrow, TRIG_MAX_ANGLE * t->tm_sec / 60);
   gpath_draw_filled(ctx, s_second_arrow);
-  //gpath_draw_outline(ctx, s_second_arrow);
+  if (current_angle != 90 && current_angle != 180 && current_angle != 270 && current_angle != 0) {
+    gpath_draw_outline(ctx, s_second_arrow);
+  }
     
   // dots in the middle
   graphics_context_set_fill_color(ctx, GColorDarkCandyAppleRed);
@@ -95,7 +98,7 @@ static void window_load(Window *window) {
 
   s_day_label = text_layer_create(GRect(5, 77, 27, 20));
   text_layer_set_text(s_day_label, s_day_buffer);
-  text_layer_set_background_color(s_day_label, GColorWhite);
+  text_layer_set_background_color(s_day_label, GColorClear);
   text_layer_set_text_color(s_day_label, GColorBlack);
   text_layer_set_font(s_day_label, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD));
 
@@ -103,7 +106,7 @@ static void window_load(Window *window) {
 
   s_num_label = text_layer_create(GRect(160, 77, 18, 20));
   text_layer_set_text(s_num_label, s_num_buffer);
-  text_layer_set_background_color(s_num_label, GColorWhite);
+  text_layer_set_background_color(s_num_label, GColorClear);
   text_layer_set_text_color(s_num_label, GColorBlack);
   text_layer_set_font(s_num_label, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD));
 
